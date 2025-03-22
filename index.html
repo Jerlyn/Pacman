@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Accessible Pac-Man</title>
+    <link rel="stylesheet" href="style.css">
+    <meta name="description" content="An accessible and colorful Pac-Man game">
+</head>
+<body>
+    <main>
+        <div class="game-container">
+            <div class="game-header" aria-live="polite">
+                <h1>Pac-Man</h1>
+                <div class="score-container">
+                    <span id="score-label">Score:</span>
+                    <span id="score" aria-live="polite">0</span>
+                </div>
+                <div class="lives-container">
+                    <span id="lives-label">Lives:</span>
+                    <div id="lives" aria-live="polite">
+                        <span class="life"></span>
+                        <span class="life"></span>
+                        <span class="life"></span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="canvas-container">
+                <canvas id="gameCanvas" width="560" height="620" aria-label="Pac-Man game area" role="img"></canvas>
+                <div id="gameMessage" class="game-message" aria-live="assertive"></div>
+            </div>
+            
+            <div class="controls">
+                <button id="startButton" class="control-button" aria-label="Start game">Start Game</button>
+                <button id="pauseButton" class="control-button" aria-label="Pause game" disabled>Pause</button>
+            <div class="toggle-container">
+                    <label for="highContrastToggle" class="toggle-label">High Contrast Mode:</label>
+                    <input type="checkbox" id="highContrastToggle" class="toggle-input">
+                    <span class="toggle-slider"></span>
+                </div>
+            </div>
+            
+            <section class="instructions" aria-labelledby="instructions-heading">
+                <h2 id="instructions-heading">How to Play</h2>
+                <div class="instruction-content">
+                    <p>Use the arrow keys to move Pac-Man through the maze. Eat all the pellets to complete the level.</p>
+                    <p>Watch out for ghosts! If they catch you, you'll lose a life. Eat power pellets to turn the tables and chase the ghosts.</p>
+                    <h3>Controls:</h3>
+                    <ul>
+                        <li>Arrow keys or WASD to move</li>
+                        <li>P to pause/resume</li>
+                        <li>M to toggle sound</li>
+                        <li>Space to start/restart</li>
+                    </ul>
+                </div>
+            </section>
+        </div>
+    </main>
+    
+    <footer>
+        <p>Created by Jerlyn - Accessible Pac-Man Game</p>
+    </footer>
+    
+    <!-- Audio elements for game sounds -->
+    <audio id="startSound" preload="auto">
+        <source src="sounds/game-start.mp3" type="audio/mpeg">
+    </audio>
+    <audio id="chompSound" preload="auto">
+        <source src="sounds/chomp.mp3" type="audio/mpeg">
+    </audio>
+    <audio id="powerPelletSound" preload="auto">
+        <source src="sounds/power-pellet.mp3" type="audio/mpeg">
+    </audio>
+    <audio id="ghostEatenSound" preload="auto">
+        <source src="sounds/ghost-eaten.mp3" type="audio/mpeg">
+    </audio>
+    <audio id="deathSound" preload="auto">
+        <source src="sounds/death.mp3" type="audio/mpeg">
+    </audio>
+    <audio id="victorySound" preload="auto">
+        <source src="sounds/victory.mp3" type="audio/mpeg">
+    </audio>
+
+    <script src="game.js"></script>
+</body>
+</html>
