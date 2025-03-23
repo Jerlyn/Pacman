@@ -90,6 +90,7 @@ class Ghost {
     this.isEaten = false;
     this.strategy = strategy;
     this.scatterTarget = { x: 0, y: 0 }; // Will be set differently for each ghost
+    this.justChangedMode = false; // Flag for allowing direction reversal during mode changes
     // Animation variables
     this.animationFrame = 0;
     this.eyesDirection = DIRECTIONS.RIGHT;
@@ -270,10 +271,18 @@ class Ghost {
     }
     
     // Filter out the reverse of current direction (ghosts can't reverse)
-    const filteredDirections = directions.filter(dir => !(dir.x === -this.direction.x && dir.y === -this.direction.y));
+    // EXCEPT during mode changes, where reversal is allowed
+    if (!this.justChangedMode) {
+      const filteredDirections = directions.filter(dir => 
+        !(dir.x === -this.direction.x && dir.y === -this.direction.y)
+      );
+      
+      // If no valid directions after filtering, return all directions
+      return filteredDirections.length > 0 ? filteredDirections : directions;
+    }
     
-    // If no valid directions after filtering, return all directions
-    return filteredDirections.length > 0 ? filteredDirections : directions;
+    this.justChangedMode = false; // Reset the flag
+    return directions; // Allow all directions including reversal after mode change
   }
 
   frighten() {
@@ -283,6 +292,13 @@ class Ghost {
     this.mode = 'frightened';
     this.frightenedTimeLeft = FRIGHTENED_MODE_DURATION;
     this.speed = FRIGHTENED_GHOST_SPEED;
+    
+    // Immediately reverse direction when frightened (as in original game)
+    this.justChangedMode = true;
+    this.direction = {
+      x: -this.direction.x,
+      y: -this.direction.y
+    };
   }
 
   draw() {
@@ -507,8 +523,6 @@ function togglePause() {
   }
 }
 
-
-
 function toggleSound() {
   soundEnabled = !soundEnabled;
   showMessage(soundEnabled ? 'Sound On' : 'Sound Off', 1000);
@@ -606,39 +620,66 @@ function resetGame() {
   // Reset ghost mode timer
   ghostModeSwitchTime = 0;
   
-  // Reset ghosts with different strategies
+  // Create ghosts with improved strategies
   ghosts = [
     new Ghost(14 * CELL_SIZE + CELL_SIZE / 2, 11 * CELL_SIZE + CELL_SIZE / 2, 'red', 'Blinky', 
-              (pacman) => ({ x: pacman.x, y: pacman.y })), // Direct chase
+              (pacman) => {
+                // Blinky directly targets Pac-Man's current position
+                return { x: pacman.x, y: pacman.y };
+              }),
     
     new Ghost(14 * CELL_SIZE + CELL_SIZE / 2, 14 * CELL_SIZE + CELL_SIZE / 2, 'pink', 'Pinky',
               (pacman) => {
-                // Target 4 cells ahead of Pac-Man
+                // Pinky targets 4 cells ahead of Pac-Man
                 const target = { x: pacman.x, y: pacman.y };
-                target.x += pacman.direction.x * 4 * CELL_SIZE;
-                target.y += pacman.direction.y * 4 * CELL_SIZE;
+                
+                // Add offset based on Pac-Man's direction
+                if (pacman.direction === DIRECTIONS.UP) {
+                  target.x -= 4 * CELL_SIZE; // Special case: up has a -4,-4 offset
+                  target.y -= 4 * CELL_SIZE;
+                } else {
+                  target.x += pacman.direction.x * 4 * CELL_SIZE;
+                  target.y += pacman.direction.y * 4 * CELL_SIZE;
+                }
+                
                 return target;
               }),
     
     new Ghost(12 * CELL_SIZE + CELL_SIZE / 2, 14 * CELL_SIZE + CELL_SIZE / 2, 'cyan', 'Inky',
               (pacman, ghosts) => {
-                // Complex strategy - position relative to Blinky and Pac-Man
+                // Get Blinky's position
                 const blinky = ghosts[0];
-                const target = { x: pacman.x, y: pacman.y };
-                target.x += pacman.direction.x * 2 * CELL_SIZE;
-                target.y += pacman.direction.y * 2 * CELL_SIZE;
                 
-                // Double the vector from Blinky to this point
-                target.x = target.x * 2 - blinky.x;
-                target.y = target.y * 2 - blinky.y;
+                // Get position 2 tiles ahead of Pac-Man
+                const pivotPoint = { x: pacman.x, y: pacman.y };
+                
+                if (pacman.direction === DIRECTIONS.UP) {
+                  pivotPoint.x -= 2 * CELL_SIZE; // Special case for up
+                  pivotPoint.y -= 2 * CELL_SIZE;
+                } else {
+                  pivotPoint.x += pacman.direction.x * 2 * CELL_SIZE;
+                  pivotPoint.y += pacman.direction.y * 2 * CELL_SIZE;
+                }
+                
+                // Double the vector from Blinky to this pivot point
+                const target = {
+                  x: pivotPoint.x + (pivotPoint.x - blinky.x),
+                  y: pivotPoint.y + (pivotPoint.y - blinky.y)
+                };
                 
                 return target;
               }),
     
     new Ghost(16 * CELL_SIZE + CELL_SIZE / 2, 14 * CELL_SIZE + CELL_SIZE / 2, 'orange', 'Clyde',
               (pacman, ghosts, ghost) => {
-                // If far from Pac-Man, chase directly; if close, retreat to corner
-                const dist = Math.sqrt(Math.pow(pacman.x - ghost.x, 2) + Math.pow(pacman.y - ghost.y, 2));
+                // Calculate distance to Pac-Man
+                const dist = Math.sqrt(
+                  Math.pow(pacman.x - ghost.x, 2) + 
+                  Math.pow(pacman.y - ghost.y, 2)
+                );
+                
+                // If Clyde is further than 8 tiles from Pac-Man, chase him
+                // If closer than 8 tiles, go to scatter target
                 if (dist > 8 * CELL_SIZE) {
                   return { x: pacman.x, y: pacman.y };
                 } else {
@@ -647,7 +688,7 @@ function resetGame() {
               })
   ];
   
-  // Set scatter targets for each ghost (different corners)
+  // Set scatter targets for each ghost
   ghosts[0].scatterTarget = { x: (COLS - 3) * CELL_SIZE, y: 2 * CELL_SIZE }; // Top-right
   ghosts[1].scatterTarget = { x: 2 * CELL_SIZE, y: 2 * CELL_SIZE }; // Top-left
   ghosts[2].scatterTarget = { x: (COLS - 3) * CELL_SIZE, y: (ROWS - 3) * CELL_SIZE }; // Bottom-right
@@ -813,6 +854,9 @@ function updateGhostModes() {
       // Only change mode if it's different
       if (ghost.mode !== newMode) {
         ghost.mode = newMode;
+        
+        // Flag that allows direction reversal
+        ghost.justChangedMode = true;
         
         // Reverse direction when mode changes (as in the original game)
         ghost.direction = {
@@ -1012,22 +1056,22 @@ function resetPositions() {
   pacman.isDead = false;
   
   // Reset ghost positions
-  ghosts[0].x = 14 * CELL_SIZE + CELL_SIZE / 2;
+  ghosts[0].x = 14 * CELL_SIZE + CELL_SIZE / 2; // Blinky
   ghosts[0].y = 11 * CELL_SIZE + CELL_SIZE / 2;
   ghosts[0].direction = DIRECTIONS.RIGHT;
   ghosts[0].mode = 'scatter';
   
-  ghosts[1].x = 14 * CELL_SIZE + CELL_SIZE / 2;
+  ghosts[1].x = 14 * CELL_SIZE + CELL_SIZE / 2; // Pinky
   ghosts[1].y = 14 * CELL_SIZE + CELL_SIZE / 2;
   ghosts[1].direction = DIRECTIONS.RIGHT;
   ghosts[1].mode = 'scatter';
   
-  ghosts[2].x = 12 * CELL_SIZE + CELL_SIZE / 2;
+  ghosts[2].x = 12 * CELL_SIZE + CELL_SIZE / 2; // Inky
   ghosts[2].y = 14 * CELL_SIZE + CELL_SIZE / 2;
   ghosts[2].direction = DIRECTIONS.RIGHT;
   ghosts[2].mode = 'scatter';
   
-  ghosts[3].x = 16 * CELL_SIZE + CELL_SIZE / 2;
+  ghosts[3].x = 16 * CELL_SIZE + CELL_SIZE / 2; // Clyde
   ghosts[3].y = 14 * CELL_SIZE + CELL_SIZE / 2;
   ghosts[3].direction = DIRECTIONS.RIGHT;
   ghosts[3].mode = 'scatter';
@@ -1037,7 +1081,11 @@ function resetPositions() {
     ghost.mode = 'scatter';
     ghost.isEaten = false;
     ghost.frightenedTimeLeft = 0;
+    ghost.justChangedMode = false;
   }
+  
+  // Reset ghost mode timer
+  ghostModeSwitchTime = 0;
   
   lastDirectionPressed = null;
 }
